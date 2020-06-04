@@ -1,0 +1,58 @@
+{
+    "CIF2016o6": {
+        "train": "https://www.dropbox.com/s/1no4t641fdbwkwf/train.csv?dl=1",
+        "test": "https://www.dropbox.com/s/d72mu7zmaiixazv/test.csv?dl=1"
+    },
+    "CIF2016o12": {
+        "train": "https://www.dropbox.com/s/c4gug4mtkw1oqkd/train.csv?dl=1",
+        "test": "https://www.dropbox.com/s/310i3uozx2y1o4b/test.csv?dl=1"
+    },
+    "ElectricityLoad": {
+        "train": "https://www.dropbox.com/s/b90zkfqhg6n3p3f/train.csv?dl=1",
+        "test": "https://www.dropbox.com/s/3luvjl24ce3pe1z/test.csv?dl=1"
+    },
+    "ExchangeRate": {
+        "train": "https://www.dropbox.com/s/z7puea314launkr/train.csv?dl=1",
+        "test": "https://www.dropbox.com/s/9xmv1pb6c4y2hfh/test.csv?dl=1"
+    },
+    "M3": {
+        "train": "https://www.dropbox.com/s/5jb7qstahwtl97o/train.csv?dl=1",
+        "test": "https://www.dropbox.com/s/zhyd62xxesdxmaz/test.csv?dl=1"
+    },
+    "M4": {
+        "train": "https://www.dropbox.com/s/qyxz43l9wag7ev7/train.csv?dl=1",
+        "test": "https://www.dropbox.com/s/wzljowvvdoykmd0/test.csv?dl=1"
+    },
+    "NN5": {
+        "train": "https://www.dropbox.com/s/x29hkn72ja7e7v2/train.csv?dl=1",
+        "test": "https://www.dropbox.com/s/3qf5z5b2nfvfx0o/test.csv?dl=1"
+    },
+    "Tourism": {
+        "train": "https://www.dropbox.com/s/nxxt1tal639ayr4/train.csv?dl=1",
+        "test": "https://www.dropbox.com/s/f000wu5jpzcuk7s/test.csv?dl=1"
+    },
+    "SolarEnergy": {
+        "train": "https://www.dropbox.com/s/nxuio6czc2c5h8b/train.csv?dl=1",
+        "test": "https://www.dropbox.com/s/0l76zj76voawc53/test.csv?dl=1"
+    },
+    "GasSensor": {
+        "train": "https://www.dropbox.com/s/lhdnn1quh251y9n/train.csv?dl=1",
+        "test": "https://www.dropbox.com/s/eeexzxk8lwifunh/test.csv?dl=1"
+    },
+    "Traffic-metr-la": {
+        "train": "https://www.dropbox.com/s/4thwkm60ubqq602/train.csv?dl=1",
+        "test": "https://www.dropbox.com/s/hypzr44nzijre6k/test.csv?dl=1"
+    },
+    "Traffic-perms-bay": {
+        "train": "https://www.dropbox.com/s/u9rtpdzz66euugs/train.csv?dl=1",
+        "test": "https://www.dropbox.com/s/abzk9osasacd34e/test.csv?dl=1"
+    },
+    "Traffic": {
+        "train": "https://www.dropbox.com/s/kkg3d7myv28jcse/train.csv?dl=1",
+        "test": "https://www.dropbox.com/s/5hszmk7f4crbfbz/test.csv?dl=1"
+    },
+    "WikiWebTraffic": {
+        "train": "https://www.dropbox.com/s/r2s5snxrfmzuxkr/train.csv?dl=1",
+        "test": "https://www.dropbox.com/s/231suuyxh2vs9o8/test.csv?dl=1"
+    }
+}

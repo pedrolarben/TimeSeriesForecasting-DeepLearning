@@ -246,11 +246,14 @@ def main(args):
                             test_metrics = {}
 
                         # Save results
-                        predictions_path = "{}/{}/{}/{}/{}/".format(
+                        predictions_path = "{}/{}/{}/{}/{}/{}/{}/{}/".format(
                             results_path,
                             dataset,
                             normalization_method,
                             past_history_factor,
+                            epochs,
+                            batch_size,
+                            learning_rate,
                             model_name,
                         )
                         if not os.path.exists(predictions_path):

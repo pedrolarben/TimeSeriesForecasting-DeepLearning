@@ -179,8 +179,10 @@ def main(args):
             ]
         )
 
-        for normalization_method, past_history_factor in itertools.product(
-            parameters["normalization_method"], parameters["past_history_factor"]
+        for epochs, normalization_method, past_history_factor in itertools.product(
+            parameters["epochs"],
+            parameters["normalization_method"],
+            parameters["past_history_factor"],
         ):
             x_train, y_train, x_test, y_test, y_test_denorm, norm_params = read_data(
                 dataset_path, normalization_method, past_history_factor
@@ -189,10 +191,8 @@ def main(args):
             forecast_horizon = y_test.shape[1]
             past_history = x_test.shape[1]
 
-            for epochs, batch_size, learning_rate in itertools.product(
-                parameters["epochs"],
-                parameters["batch_size"],
-                parameters["learning_rate"],
+            for batch_size, learning_rate in itertools.product(
+                parameters["batch_size"], parameters["learning_rate"],
             ):
                 steps_per_epoch = min(
                     int(np.ceil(x_train.shape[0] / batch_size)),

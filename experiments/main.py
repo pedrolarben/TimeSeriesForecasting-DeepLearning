@@ -135,8 +135,11 @@ def _run_experiment(
     model_index,
     model_args,
 ):
+    import gc
     import tensorflow as tf
     from models import create_model
+
+    tf.keras.backend.clear_session()
 
     def select_gpu_device(gpu_number):
         gpus = tf.config.experimental.list_physical_devices("GPU")
@@ -244,6 +247,9 @@ def _run_experiment(
     results.to_csv(
         csv_filepath, sep=";",
     )
+
+    gc.collect()
+    del model, x_train, x_test, y_train, y_test, y_test_denorm, test_forecast
 
 
 def run_experiment(

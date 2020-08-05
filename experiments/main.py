@@ -436,6 +436,5 @@ if __name__ == "__main__":
         help="Metrics to use for evaluation. If not define it will use all possible metrics.",
     )
     args = parser.parse_args()
-    print(args)
-
+    
     main(args)

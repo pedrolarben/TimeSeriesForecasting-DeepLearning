@@ -133,19 +133,21 @@ def mrae(actual: np.ndarray, predicted: np.ndarray, benchmark: np.ndarray = None
 
 
 METRICS = {
-    "mse": mse,
-    "rmse": rmse,
-    "mae": mae,
+    # "mse": mse,
+    # "rmse": rmse,
+    # "mae": mae,
     "wape": wape,
-    "mape": mape,
-    "smape": smape,
+    # "mape": mape,
+    # "smape": smape,
     "mase": mase,
-    "std_ae": std_ae,
-    "std_ape": std_ape,
-    "rae": rae,
+    # "std_ae": std_ae,
+    # "std_ape": std_ape,
+    # "rae": rae,
     #'mre': mre,
     #'mrae': mrae
 }
+
+import matplotlib.pyplot as plt
 
 
 def evaluate(
@@ -162,9 +164,23 @@ def evaluate(
                 all_zeros = name in ["mape", "wape", "std_ape", "rae"] and np.all(
                     y == 0.0
                 )
-                all_identical = name in ["mase"] and np.all(y == y[0])
+                all_identical = name in ["mase", "wape", "mape"] and np.all(
+                    np.abs(y - np.mean(y)) < 0.001
+                )
                 if not all_zeros and not all_identical:
                     res.append(METRICS[name](y, o))
+
+                if (
+                    False
+                    and not all_zeros
+                    and not all_identical
+                    and METRICS[name](y, o) > 100000
+                ):
+                    plt.plot(y, label="real")
+                    plt.plot(o, label="predicted")
+                    plt.title("{}: {}".format(name, METRICS[name](y, o)))
+                    plt.legend()
+                    plt.show()
 
             results[name] = np.mean(res)
 

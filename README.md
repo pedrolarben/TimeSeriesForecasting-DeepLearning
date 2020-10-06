@@ -14,7 +14,7 @@ The complete report of results is provided in the [results](results) folder.
 
 * **Pedro Lara-Benítez** - [LinkedIn](www.linkedin.com/in/pedrolarben)
 * **Manuel Carranza-García** - [LinkedIn](https://www.linkedin.com/in/manuelcarranzagarcia96/)
-* **José C. Riquelme**
+* **José C. Riquelme Santos**
 
 ## License<a name="license"></a>
 

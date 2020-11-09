@@ -127,3 +127,10 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+
+# Data folder
+data/*
+!data/datasets.json
+
+

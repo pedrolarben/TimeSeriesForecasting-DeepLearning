@@ -55,7 +55,7 @@ def train_epoch(train_iter, model, criterion, model_opt):
             batch.src, batch.trg, batch.trg_mask
         out = model.forward(src, trg[:, :-1], None, trg_mask[:, :-1, :-1])
 
-        loss = loss_backprop(model.module.generator, criterion, out, trg[:, 1:])  #model.module need to use generator throught wrapper nn.DataParallel
+        loss = loss_backprop(model.generator, criterion, out, trg[:, 1:])  #model.module need to use generator throught wrapper nn.DataParallel
         totalLoss += float(loss)
         model_opt.step()
         model_opt.optimizer.zero_grad()
@@ -72,7 +72,7 @@ def singleStepvalidEpoch(valid_iter, model, criterion):
           src, trg, trg_mask = \
               batch.src, batch.trg, batch.trg_mask
           out = model.forward(src, trg[:, :-1], None, trg_mask[:, :-1, :-1])
-          loss = loss_validation(model.module.generator, criterion, out, trg[:, 1:]) 
+          loss = loss_validation(model.generator, criterion, out, trg[:, 1:]) 
           totalLoss += loss
           #print(i,"Batch validation loss", loss)
     print("Single Step Validation loss:" , totalLoss/(i+1))
@@ -91,7 +91,7 @@ def multiStepValidEpoch(valid_iter, model, criterion):
           for _ in range(nSteps): # We append the prediction on step 0 to the original input to get the input for step 1 and so on.
             out = model.forward(src,decoderInput , None, None)  # We don't need mask for evaluation, we are not giving the model any future input.
  
-            gen = model.module.generator(out[:,-1]).detach() #detach() is quite important, otherwise we will keep the variable "gen" in memory and cause an out of memory error.
+            gen = model.generator(out[:,-1]).detach() #detach() is quite important, otherwise we will keep the variable "gen" in memory and cause an out of memory error.
             gen = gen.unsqueeze(-1)
                 
             decoderInput = torch.cat((decoderInput,gen),1) 
@@ -164,7 +164,7 @@ def predictMultiStep(x_test, model, nSteps,batchSize):
           for _ in range(nSteps): # We append the prediction on step 0 to the original input to get the input for step 1 and so on.
             out = model.forward(src,decoderInput , None, None)  # We don't need mask for evaluation, we are not giving the model any future input.
             
-            gen = model.module.generator(out[:,-1]).detach() #detach() is quite important, otherwise we will keep the variable "gen" in memory and cause an out of memory error.
+            gen = model.generator(out[:,-1]).detach() #detach() is quite important, otherwise we will keep the variable "gen" in memory and cause an out of memory error.
             gen = gen.unsqueeze(-1)
                 
             decoderInput = torch.cat((decoderInput,gen),1) 

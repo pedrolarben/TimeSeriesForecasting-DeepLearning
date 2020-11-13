@@ -303,7 +303,7 @@ def Transformer(
     output_features=1,
     N=4,
     d_model=256,
-    k=10,
+    k=1,
     d_ff=2048,
     h=8,
     dropout=0.1):
@@ -322,7 +322,7 @@ def Transformer(
             nn.Sequential(Embeddings(d_model, output_features), c(position)),
             Generator(d_model, output_features))
 
-        # This was important from their code. Initialize parameters with Glorot or fan_avg.
+        
         for p in model.parameters():
             if p.dim() > 1:
                 nn.init.xavier_uniform_(p)

@@ -179,7 +179,7 @@ class MultiHeadedAttention(nn.Module):
 
         # 2) Apply attention on all the projected vectors in batch. 
 
-        x, self.attn = attention(query, key, value, mask=mask, dropout=self.p) # ¿Por qué se guardan los pesos en la clase (self.attn)? No se usan posteriormente
+        x, self.attn = attention(query, key, value, mask=mask, dropout=self.p) 
         
         # 3) "Concat" using a view and apply a final linear. 
         x = x.transpose(1, 2).contiguous().view(nbatches, -1, self.h * self.d_k)

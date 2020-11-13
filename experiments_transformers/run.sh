@@ -1,7 +1,7 @@
 GPU=0
 LOG_FILE=./experiments${GPU}.out
 DATASETS=('../data/Traffic-metr-la')
-MODELS=('mlp' 'ernn' 'lstm' 'gru' 'esn' 'cnn' 'tcn')
+MODELS=('mlp' 'ernn' 'lstm' 'gru' 'esn' 'cnn' 'tcn' 'tr')
 PARAMETERS=./parameters.json
 OUTPUT=../results
 CSV_FILENAME=results.csv

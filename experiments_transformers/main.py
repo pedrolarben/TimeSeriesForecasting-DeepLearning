@@ -377,7 +377,7 @@ def _run_experiment_transformer(
 
 
 
-def run_experiment(
+def run_experiment_transformer(
     error_dict,
     gpu_device,
     dataset,
@@ -396,7 +396,7 @@ def run_experiment(
     model_args,
 ):
     try:
-        _run_experiment(
+        _run_experiment_transformer(
             gpu_device,
             dataset,
             dataset_path,
@@ -477,10 +477,10 @@ def main(args):
             for batch_size, learning_rate in itertools.product(
                 parameters["batch_size"], parameters["learning_rate"],
             ):
-                for model_name in models:
-                    for model_index, model_args in enumerate(
-                        product(**parameters["model_params"][model_name])
-                    ):
+                model_name = "tr"
+                for model_index, model_args in enumerate(
+                      product(**parameters["model_params"][model_name])
+                      ):
                         experiments_index += 1
                         if experiments_index <= current_index:
                             continue
@@ -490,7 +490,7 @@ def main(args):
                         error_dict = manager.dict()
 
                         p = Process(
-                            target=run_experiment,
+                            target=run_experiment_transformer,
                             args=(
                                 error_dict,
                                 gpu_device,

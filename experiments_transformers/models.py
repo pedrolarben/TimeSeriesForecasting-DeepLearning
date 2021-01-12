@@ -2,6 +2,9 @@ import tensorflow as tf
 from tensorflow_addons.layers import ESN
 from tcn import TCN
 from transformerConvolutionalAtt import *
+from transformerPytorch import TransformerModel
+from transformerDecoderPytorch import TransformerDecoderModel
+from transformerDecoderConvPytorch import TransformerDecoderConvModel
 import math, copy
 
 
@@ -298,43 +301,30 @@ def create_cnn(input_shape, output_size, optimizer, loss, conv_blocks):
         pool_sizes=pool_sizes,
     )
 
-def Transformer(
+def TransformerDecoderPytorch(
     input_shape, 
     output_features=1,
-    N=4,
+    N=3,
     d_model=256,
-    k=1,
-    d_ff=2048,
     h=8,
     dropout=0.1):
 
-    input_features = input_shape[-1]
+    model = TransformerDecoderModel(output_features,output_features,d_model,h,N)
 
-    def make_model(src_vocab, tgt_vocab, N=6, d_model=512,k=10, d_ff=2048, h=8, dropout=0.1):
-        c = copy.deepcopy
-        attn = MultiHeadedAttention(h, d_model, k,dropout)
-        ff = PositionwiseFeedForward(d_model, d_ff, dropout)
-        position = PositionalEncoding(d_model, dropout)
-        model = EncoderDecoder(
-            Encoder(EncoderLayer(d_model, c(attn), c(ff), dropout), N),
-            Decoder(DecoderLayer(d_model, c(attn), c(attn), c(ff), dropout), N),
-            nn.Sequential(Embeddings(d_model, input_features), c(position)),
-            nn.Sequential(Embeddings(d_model, output_features), c(position)),
-            Generator(d_model, output_features))
-
-        
-        for p in model.parameters():
-            if p.dim() > 1:
-                nn.init.xavier_uniform_(p)
-        return model
-    
-    model = make_model(input_features, output_features, N=N, d_model=d_model ,h=h, d_ff=d_ff, dropout=dropout)
-
-    if torch.cuda.device_count() > 1:
-        print("Let's use", torch.cuda.device_count(), "GPUs!")
-    #model = nn.DataParallel(model)
     return model
 
+def TransformerDecoderConvPytorch(
+    input_shape, 
+    output_features=1,
+    N=3,
+    k=1,
+    d_model=256,
+    h=8,
+    dropout=0.1):
+
+    model = TransformerDecoderConvModel(output_features,output_features,d_model,h,N,k=k)
+
+    return model
 
 model_factory = {
     "mlp": mlp,
@@ -344,7 +334,8 @@ model_factory = {
     "esn": create_rnn(esn),
     "cnn": create_cnn,
     "tcn": tcn,
-    "tr": Transformer,
+    "trDPT": TransformerDecoderPytorch,
+    "trDCPT": TransformerDecoderConvPytorch
 }
 
 

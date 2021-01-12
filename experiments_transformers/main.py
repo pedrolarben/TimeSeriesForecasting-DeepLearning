@@ -68,7 +68,7 @@ def read_results_file(csv_filepath, metrics):
                 "NORMALIZATION",
                 "TEST_TIME",
                 "TRAINING_TIME",
-                *metrics,
+                *metrics ,
                 "LOSS",
                 "VAL_LOSS",
             ]
@@ -102,12 +102,18 @@ def read_data(dataset_path, normalization_method, past_history_factor):
     y_train = np.load(tmp_data_path + "y_train.np.npy")
     x_test = np.load(tmp_data_path + "x_test.np.npy")
     y_test = np.load(tmp_data_path + "y_test.np.npy")
+    if os.path.isfile(tmp_data_path + "invalidParams.np.npy"):
+        invalidParams = np.load(tmp_data_path + "invalidParams.np.npy")
+        norm_params = np.delete(norm_params,invalidParams)
+        
+
     y_test_denorm = np.asarray(
         [
             denormalize(y_test[i], norm_params[i], normalization_method)
             for i in range(y_test.shape[0])
         ]
     )
+
     print("TRAINING DATA")
     print("Input shape", x_train.shape)
     print("Output_shape", y_train.shape)
@@ -117,6 +123,203 @@ def read_data(dataset_path, normalization_method, past_history_factor):
 
     return x_train, y_train, x_test, y_test, y_test_denorm, norm_params
 
+
+
+def _run_experiment_transformer(
+    gpu_device,
+    dataset,
+    dataset_path,
+    results_path,
+    csv_filepath,
+    metrics,
+    epochs,
+    normalization_method,
+    past_history_factor,
+    max_steps_per_epoch,
+    batch_size,
+    learning_rate,
+    model_name,
+    model_index,
+    model_args,
+):
+    print("Start _run_experiment_transformer")
+    import gc
+    from models import create_model
+    from transformerOptimizer import get_std_opt
+    from transformerTraining import train
+    from transformerTraining import predictMultiStep 
+    from transformerTraining import predictMultiStepBatching
+    import torch
+    from torch.nn import L1Loss
+
+    results = read_results_file(csv_filepath, metrics)
+
+    x_train, y_train, x_test, y_test, y_test_denorm, norm_params = read_data(
+        dataset_path, normalization_method, past_history_factor
+    )
+    
+    forecast_horizon = y_test.shape[1]
+    past_history = x_test.shape[1]
+
+
+    device = torch.device("cuda:" + str(gpu_device) if torch.cuda.is_available() else "cpu")
+
+    steps_per_epoch = min(
+        int(np.ceil(x_train.shape[0] / batch_size)), max_steps_per_epoch,
+    )
+    
+    x_train = torch.from_numpy(x_train).float().to(device)
+    y_train = torch.from_numpy(y_train).float().to(device)
+
+    x_test = torch.from_numpy(x_test).float().to(device)
+    y_test = torch.from_numpy(y_test).float().to(device)
+    
+    y_test_denorm = torch.from_numpy(y_test_denorm).float()
+
+   
+    model = create_model(
+        model_name,
+        x_train.shape,
+        **model_args
+    )
+    if learning_rate == "Noam":
+        model_opt = get_std_opt(model)
+        optimizerName = "Noam"
+    else:
+        model_opt = torch.optim.Adam(model.parameters(), lr=learning_rate)
+        optimizerName = "Adam"
+    model.to(device)
+    criterion = L1Loss() # mean absolute error
+
+    training_time_0 = time.time()
+    trainLoss, valLoss = train(model,x_train,y_train,x_test,y_test,epochs,steps_per_epoch,criterion,model_opt,batch_size)
+    training_time = time.time() - training_time_0
+
+    # Get validation metrics
+    test_time_0 = time.time()
+
+    if y_test.shape[0]>256: #Batch inference to avoid out of memory error
+        test_forecast = predictMultiStepBatching(x_test,model,y_test.shape[1])
+    else:
+        test_forecast = predictMultiStep(x_test,model,y_test.shape[1])
+
+    test_time = time.time() - test_time_0
+    test_time = test_time / x_train.shape[0]
+
+    normalized_test_forecast = test_forecast.numpy().copy()
+
+
+    for i, nparams in enumerate(norm_params):
+        test_forecast[i] = denormalize(
+            test_forecast[i], nparams, method=normalization_method,
+        )
+
+    if metrics:
+        print("y_test: ",y_test_denorm.numpy())
+        print("test_forecast: ",test_forecast)
+        test_metrics = evaluate(y_test_denorm.numpy(), test_forecast.numpy(), metrics)
+        print(test_metrics)
+    else:
+        print("Metrics empty")
+        test_metrics = {}
+
+    # Save results
+    predictions_path = "{}/{}/{}/{}/{}/{}/{}/{}/".format(
+        results_path,
+        dataset,
+        normalization_method,
+        past_history_factor,
+        epochs,
+        batch_size,
+        learning_rate,
+        model_name,
+    )
+    if not os.path.exists(predictions_path):
+        os.makedirs(predictions_path)
+    np.save(
+        predictions_path + str(model_index) + ".npy", test_forecast,
+    )
+    np.save(
+        predictions_path + "Normalize" +  str(model_index) + ".npy", normalized_test_forecast,
+    )
+
+    results = results.append(
+        {
+            "DATASET": dataset,
+            "MODEL": model_name,
+            "MODEL_INDEX": model_index,
+            "MODEL_DESCRIPTION": str(model_args),
+            "FORECAST_HORIZON": forecast_horizon,
+            "PAST_HISTORY_FACTOR": past_history_factor,
+            "PAST_HISTORY": past_history,
+            "BATCH_SIZE": batch_size,
+            "EPOCHS": epochs,
+            "STEPS": steps_per_epoch,
+            "OPTIMIZER": optimizerName,
+            "LEARNING_RATE": learning_rate,
+            "NORMALIZATION": normalization_method,
+            "TEST_TIME": test_time,
+            "TRAINING_TIME": training_time,
+            **test_metrics,
+            "LOSS": str(trainLoss),
+            "VAL_LOSS": str(valLoss),
+        },
+        ignore_index=True,
+    )
+
+    results.to_csv(
+        csv_filepath, sep=";",
+    )
+
+    gc.collect()
+    del model, x_train, x_test, y_train, y_test, y_test_denorm, test_forecast
+
+
+
+
+def run_experiment_transformer(
+    error_dict,
+    gpu_device,
+    dataset,
+    dataset_path,
+    results_path,
+    csv_filepath,
+    metrics,
+    epochs,
+    normalization_method,
+    past_history_factor,
+    max_steps_per_epoch,
+    batch_size,
+    learning_rate,
+    model_name,
+    model_index,
+    model_args,
+):
+    print("Start run_experiment_transformer")
+    try:
+        
+        _run_experiment_transformer(
+            gpu_device,
+            dataset,
+            dataset_path,
+            results_path,
+            csv_filepath,
+            metrics,
+            epochs,
+            normalization_method,
+            past_history_factor,
+            max_steps_per_epoch,
+            batch_size,
+            learning_rate,
+            model_name,
+            model_index,
+            model_args,
+        )
+    except Exception as e:
+        error_dict["status"] = -1
+        error_dict["message"] = str(e)
+    else:
+        error_dict["status"] = 1
 
 def _run_experiment(
     gpu_device,
@@ -195,6 +398,8 @@ def _run_experiment(
     test_forecast = model(x_test).numpy()
     test_time = time.time() - test_time_0
 
+    normalized_test_forecast = test_forecast.copy()
+
     for i, nparams in enumerate(norm_params):
         test_forecast[i] = denormalize(
             test_forecast[i], nparams, method=normalization_method,
@@ -219,6 +424,9 @@ def _run_experiment(
         os.makedirs(predictions_path)
     np.save(
         predictions_path + str(model_index) + ".npy", test_forecast,
+    )
+    np.save(
+        predictions_path + "Normalize" +  str(model_index) + ".npy", normalized_test_forecast,
     )
     results = results.append(
         {
@@ -251,133 +459,8 @@ def _run_experiment(
     gc.collect()
     del model, x_train, x_test, y_train, y_test, y_test_denorm, test_forecast
 
-def _run_experiment_transformer(
-    gpu_device,
-    dataset,
-    dataset_path,
-    results_path,
-    csv_filepath,
-    metrics,
-    epochs,
-    normalization_method,
-    past_history_factor,
-    max_steps_per_epoch,
-    batch_size,
-    learning_rate,
-    model_name,
-    model_index,
-    model_args,
-):
 
-    import gc
-    from models import create_model
-    from transformerOptimizer import get_std_opt
-    from transformerTraining import train
-    from transformerTraining import predictMultiStep
-    import torch
-    from torch.nn import L1Loss
-
-    results = read_results_file(csv_filepath, metrics)
-
-    x_train, y_train, x_test, y_test, y_test_denorm, norm_params = read_data(
-        dataset_path, normalization_method, past_history_factor
-    )
-    
-    forecast_horizon = y_test.shape[1]
-    past_history = x_test.shape[1]
-
-
-    optimizer = get_std_opt
-
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
-
-
-    x_train = torch.from_numpy(x_train).float().to(device)
-    y_train = torch.from_numpy(y_train).float().to(device)
-
-    x_test = torch.from_numpy(x_test).float().to(device)
-    y_test = torch.from_numpy(y_test).float().to(device)
-
-
-    model = create_model(
-        "model_name",
-        x_train.shape,
-        **model_args
-    )
-
-    model_opt = optimizer(model)
-    model.to(device)
-    criterion = L1Loss() # mean absolute error
-
-    training_time_0 = time.time()
-    trainLoss, valLoss = train(model,x_train,y_train,x_test,y_test,epochs,criterion,model_opt,batch_size)
-    training_time = time.time() - training_time_0
-
-    # Get validation metrics
-    test_time_0 = time.time()
-    test_forecast = predictMultiStep(x_test,model,y_test.shape[1],batch_size)
-    test_time = time.time() - test_time_0
-
-    for i, nparams in enumerate(norm_params):
-        test_forecast[i] = denormalize(
-            test_forecast[i], nparams, method=normalization_method,
-        )
-    if metrics:
-        test_metrics = evaluate(y_test_denorm, test_forecast, metrics)
-    else:
-        test_metrics = {}
-
-    # Save results
-    predictions_path = "{}/{}/{}/{}/{}/{}/{}/{}/".format(
-        results_path,
-        dataset,
-        normalization_method,
-        past_history_factor,
-        epochs,
-        batch_size,
-        learning_rate,
-        model_name,
-    )
-    if not os.path.exists(predictions_path):
-        os.makedirs(predictions_path)
-    np.save(
-        predictions_path + str(model_index) + ".npy", test_forecast,
-    )
-    results = results.append(
-        {
-            "DATASET": dataset,
-            "MODEL": model_name,
-            "MODEL_INDEX": model_index,
-            "MODEL_DESCRIPTION": str(model_args),
-            "FORECAST_HORIZON": forecast_horizon,
-            "PAST_HISTORY_FACTOR": past_history_factor,
-            "PAST_HISTORY": past_history,
-            "BATCH_SIZE": batch_size,
-            "EPOCHS": epochs,
-            "OPTIMIZER": "NoamOpt",
-            "LEARNING_RATE": learning_rate,
-            "NORMALIZATION": normalization_method,
-            "TEST_TIME": test_time,
-            "TRAINING_TIME": training_time,
-            **test_metrics,
-            "LOSS": str(trainLoss),
-            "VAL_LOSS": str(valLoss),
-        },
-        ignore_index=True,
-    )
-
-    results.to_csv(
-        csv_filepath, sep=";",
-    )
-
-    gc.collect()
-    del model, x_train, x_test, y_train, y_test, y_test_denorm, test_forecast
-
-
-
-
-def run_experiment_transformer(
+def run_experiment(
     error_dict,
     gpu_device,
     dataset,
@@ -396,7 +479,7 @@ def run_experiment_transformer(
     model_args,
 ):
     try:
-        _run_experiment_transformer(
+        _run_experiment(
             gpu_device,
             dataset,
             dataset_path,
@@ -418,7 +501,6 @@ def run_experiment_transformer(
         error_dict["message"] = str(e)
     else:
         error_dict["status"] = 1
-
 
 def main(args):
     datasets = args.datasets
@@ -477,18 +559,20 @@ def main(args):
             for batch_size, learning_rate in itertools.product(
                 parameters["batch_size"], parameters["learning_rate"],
             ):
-                model_name = "tr"
-                for model_index, model_args in enumerate(
-                      product(**parameters["model_params"][model_name])
-                      ):
+                for model_name in models:
+                    for model_index, model_args in enumerate(
+                        product(**parameters["model_params"][model_name])
+                    ):
+                        
                         experiments_index += 1
+                        
                         if experiments_index <= current_index:
                             continue
-
                         # Run each experiment in a new Process to avoid GPU memory leaks
                         manager = Manager()
+                        
                         error_dict = manager.dict()
-
+                        
                         p = Process(
                             target=run_experiment_transformer,
                             args=(
@@ -512,6 +596,8 @@ def main(args):
                         )
                         p.start()
                         p.join()
+                        
+                      
 
                         assert error_dict["status"] == 1, error_dict["message"]
 

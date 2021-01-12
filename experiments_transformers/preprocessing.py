@@ -107,10 +107,14 @@ def _moving_windows_preprocessing(args):
     x_train, y_train = [], []
     x_test, y_test = [], []
 
+
+
     for i, ts in tqdm(
         list(enumerate(train)), desc="Moving window preprocesing ({})".format(core)
     ):
+
         if len(ts) >= past_history + forecast_horizon:
+            
             # Training data
             for j in range(past_history, ts.shape[0] - forecast_horizon + 1):
                 indices = list(range(j - past_history, j))
@@ -153,13 +157,16 @@ def moving_windows_preprocessing(
         for i in range(len(train_ls))
     ]
 
+
     if n_cores > 1:
         with Pool(n_cores) as p:
             res = p.map(_moving_windows_preprocessing, params)
-        x_train = np.concatenate([x[0] for x in res])
-        y_train = np.concatenate([x[1] for x in res])
-        x_test = np.concatenate([x[2] for x in res])
-        y_test = np.concatenate([x[3] for x in res])
+
+
+        x_train = np.concatenate([x[0] for x in res if x[0].ndim != 1])
+        y_train = np.concatenate([x[1] for x in res if x[1].ndim != 1])
+        x_test = np.concatenate([x[2] for x in res if x[2].ndim != 1])
+        y_test = np.concatenate([x[3] for x in res if x[3].ndim != 1])
     else:
         x_train, y_train, x_test, y_test = _moving_windows_preprocessing(params[0])
 

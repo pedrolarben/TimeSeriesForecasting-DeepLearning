@@ -28,9 +28,14 @@ def notify_slack(msg, webhook=None):
     else:
         print("NO WEBHOOK FOUND")
 
+def load_json(filepath):
+    with open(filepath) as f:
+        ans = json.load(f)
+    return ans
+
 
 # Preprocessing parameters
-PARAMETERS = json.load("parameters.json")
+PARAMETERS = load_json("parameters.json")
 NORMALIZATION_METHOD = PARAMETERS["normalization_method"]
 PAST_HISTORY_FACTOR = PARAMETERS[
     "past_history_factor"
@@ -38,7 +43,7 @@ PAST_HISTORY_FACTOR = PARAMETERS[
 
 
 # This variable stores the urls of each dataset.
-DATASETS = json.load("../data/datasets.json")
+DATASETS = load_json("../data/datasets.json")
 
 DATASET_NAMES = [d for d in list(DATASETS.keys())]
 
@@ -68,7 +73,7 @@ def generate_dataset(args):
     # Read data
     train = read_ts_dataset("../data/{}/train.csv".format(dataset))
     test = read_ts_dataset("../data/{}/test.csv".format(dataset))
-
+    print("Shape test",test.shape)
     forecast_horizon = test.shape[1]
 
     print(
@@ -81,31 +86,41 @@ def generate_dataset(args):
         },
     )
 
+    #Format training and test input/output data using the moving window strategy
+    past_history = int(forecast_horizon * past_history_factor)
+    
+
+    
     # Normalize data
     train, test, norm_params = normalize_dataset(
         train, test, norm_method, dtype="float32"
     )
-
+    
+ 
     norm_params_json = [{k: float(p[k]) for k in p} for p in norm_params]
     norm_params_json = json.dumps(norm_params_json)
 
     with open("../data/{}/{}/norm_params.json".format(dataset, norm_method), "w") as f:
         f.write(norm_params_json)
 
-    # Format training and test input/output data using the moving window strategy
-    past_history = int(forecast_horizon * past_history_factor)
+    invalidParams = []
+    for i in range(len(train)):
+        if len(train[i]) < past_history:
+            invalidParams.append(i)
 
     x_train, y_train, x_test, y_test = moving_windows_preprocessing(
         train, test, past_history, forecast_horizon, np.float32, n_cores=NUM_CORES
     )
 
     y_test_denorm = np.copy(y_test)
-    i = 0
-    for nparams in norm_params:
-        if len(train[i]) < past_history:
-            continue
-        y_test_denorm[i] = denormalize(y_test[i], nparams, method=norm_method)
-        i += 1
+
+    j = 0
+    for i,nparams in enumerate(norm_params):
+        if i not in invalidParams:
+            y_test_denorm[j] = denormalize(y_test[j], nparams, method=norm_method)
+            j += 1
+
+
 
     print("TRAINING DATA")
     print("Input shape", x_train.shape)
@@ -138,6 +153,17 @@ def generate_dataset(args):
         y_test_denorm,
     )
 
+    # Save indexes of invalid normalization parametes
+    if invalidParams != []:
+        invalidParams = np.asarray(invalidParams)
+        np.save(
+        "../data/{}/{}/{}/invalidParams.np".format(
+            dataset, norm_method, past_history_factor
+        ),
+        invalidParams,
+    )
+
+
 
 params = [
     (dataset, norm_method, past_history_factor)
@@ -147,9 +173,14 @@ params = [
 ]
 
 for i, args in tqdm(enumerate(params)):
+    dataset, norm_method, past_history_factor = args
+
+    if dataset != "SolarEnergy":
+        continue
+
     t0 = time.time()
     generate_dataset(args)
-    dataset, norm_method, past_history_factor = args
+
     notify_slack(
         "[{}/{}] Generated dataset {} with {} normalization and past history factor of {} ({:.2f} s)".format(
             i, len(params), dataset, norm_method, past_history_factor, time.time() - t0

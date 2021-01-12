@@ -27,5 +27,5 @@ class NoamOpt:
             min(step ** (-0.5), step * self.warmup**(-1.5)))
         
 def get_std_opt(model):
-    return NoamOpt(model.src_embed[0].d_model, 2, 4000,
+    return NoamOpt(model.d_model, 2, 4000,
             torch.optim.Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9))

@@ -1,10 +1,10 @@
 {
-    "normalization_method": ["minmax", "zscore"],
-    "past_history_factor": [1.25, 2.0, 3.0],
-    "batch_size": [32, 64],
-    "epochs": [5, 10],
+    "normalization_method": ["minmax","zscore"],
+    "past_history_factor": [1.25,2.0,3.0],
+    "batch_size": [32,64],
+    "epochs": [5],
     "max_steps_per_epoch": [10000],
-    "learning_rate": [0.001, 0.01],
+    "learning_rate": ["Noam"],
     "model_params": {
         "mlp": {
             "hidden_layers": [
@@ -71,9 +71,14 @@
             "kernel_size": [3, 6],
             "return_sequences": [true, false]
         },
-        "tr": {
-            "N":[2,4,6],
-            "d_model":[16,32,64,128,256],
+        "trDPT": {
+            "N":[2],
+            "d_model":[128],
+            "h":[4]
+        },
+        "trDCPT": {
+            "N":[2,3,4],
+            "d_model":[16,128,256],
             "k":[1,3,6,9],
             "h":[4,8]
         }

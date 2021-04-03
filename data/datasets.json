@@ -32,8 +32,8 @@
         "test": "https://www.dropbox.com/s/f000wu5jpzcuk7s/test.csv?dl=1"
     },
     "SolarEnergy": {
-        "train": "https://www.dropbox.com/s/3m1em5pcziixlm5/train.csv?dl=1",
-        "test": "https://www.dropbox.com/s/v0f4oszpsahtz3b/test.csv?dl=1"
+        "train": "https://www.dropbox.com/s/yu9j0ybmkn0epzl/train.csv?dl=1",
+        "test": "https://www.dropbox.com/s/z26ivaoyee4gk55/test.csv?dl=1"
     },
     "GasSensor": {
         "train": "https://www.dropbox.com/s/lhdnn1quh251y9n/train.csv?dl=1",

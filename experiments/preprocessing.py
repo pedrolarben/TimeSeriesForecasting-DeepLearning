@@ -156,8 +156,8 @@ def moving_windows_preprocessing(
     if n_cores > 1:
         with Pool(n_cores) as p:
             res = p.map(_moving_windows_preprocessing, params)
-        x_train = np.concatenate([x[0] for x in res])
-        y_train = np.concatenate([x[1] for x in res])
+        x_train = np.concatenate([x[0] for x in res if x[0].shape[0]>0])
+        y_train = np.concatenate([x[1] for x in res if x[0].shape[0]>0])
         x_test = np.concatenate([x[2] for x in res])
         y_test = np.concatenate([x[3] for x in res])
     else:

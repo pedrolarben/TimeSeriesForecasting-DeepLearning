@@ -1,10 +1,10 @@
 {
-    "normalization_method": ["minmax", "zscore"],
-    "past_history_factor": [1.25, 2.0, 3.0],
-    "batch_size": [32, 64],
-    "epochs": [5, 10],
+    "normalization_method": ["minmax"],
+    "past_history_factor": [1.25],
+    "batch_size": [32,64],
+    "epochs": [5],
     "max_steps_per_epoch": [10000],
-    "learning_rate": [0.001, 0.01],
+    "learning_rate": [0.001],
     "model_params": {
         "mlp": {
             "hidden_layers": [

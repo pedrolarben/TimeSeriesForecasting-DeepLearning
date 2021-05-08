@@ -59,7 +59,7 @@ def train_epoch(train_iter, model, criterion, opt,steps_per_epoch):
             opt.zero_grad()
         #if i % 5 == 1:
         #print(i,"Batch loss", loss)
-    #print("Train mean loss",totalLoss/(i+1))
+    print("Train mean loss",totalLoss/(i+1))
     return totalLoss/(i+1)
 
 def singleStepvalidEpoch(valid_iter, model, criterion):
@@ -101,7 +101,7 @@ def multiStepValidEpoch(valid_iter, model, criterion):
 
           totalLoss += float(loss) #float() is quite important, otherwise we will keep "loss" and its gradient in memory and cause an out of memory error.
           #print(i,"Batch validation loss", loss)
-    #print("Multi Step Validation loss:" , totalLoss/(i+1))
+    print("Multi Step Validation loss:" , totalLoss/(i+1))
     return totalLoss/(i+1)
 
 class Batch:
@@ -140,10 +140,14 @@ def getBatchesEval(x,batchSize):
 def train(model,x_train,y_train,x_test,y_test,epochs,steps_per_epoch,criterion,model_opt,batchSize):
     
     for e in range(epochs):
+        print("Epoch: ",e+1)
         trainLoss = train_epoch(getBatches(x_train,y_train,batchSize), model, criterion, model_opt,steps_per_epoch)
         valLoss = multiStepValidEpoch(getBatches(x_test,y_test,batchSize), model, criterion)
         #singleStepvalidEpoch(getBatches(x_test,y_test,batchSize), model, criterion)
     return trainLoss,valLoss
+
+
+
 
 
 def predictMultiStepBatching(x_test, model, nSteps):
@@ -174,16 +178,16 @@ def predictMultiStepBatching(x_test, model, nSteps):
 def predictMultiStep(x_test, model, nSteps):
     model.eval()
     with torch.no_grad():
-        encoderInpot = x_test
+        encoderInput = x_test
         decoderInput = x_test[:, -1,:]
         decoderInput = decoderInput.unsqueeze(-1)
-        for i in range(nSteps): # We append the prediction on step 0 to the original input to get the input for step 1 and so on.
-            out = model.forward(encoderInpot,decoderInput)  # We don't need mask for evaluation, we are not giving the model any future input.
-            lastPrediction = out[:,-1].detach() #detach() is quite important, otherwise we will keep the variable "gen" in memory and cause an out of memory error.
+        for _ in range(nSteps): # We append the prediction on step 0 to the original input to get the input for step 1 and so on.
+            out = model.forward(encoderInput,decoderInput)  # We don't need mask for evaluation, we are not giving the model any future input.
+            lastPrediction = out[:,-1].detach() #detach() is quite important, otherwise we will keep the variable "out" in memory and cause an out of memory error.
             lastPrediction = lastPrediction.unsqueeze(-1)
             decoderInput = torch.cat((decoderInput,lastPrediction),1) 
 
-        decoderInput = decoderInput.squeeze(-1).to("cpu")
+        decoderInput = decoderInput.squeeze(-1)
     return decoderInput[:,1:]
 
 

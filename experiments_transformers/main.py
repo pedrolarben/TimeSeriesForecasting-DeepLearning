@@ -11,17 +11,6 @@ from metrics import METRICS, evaluate
 from preprocessing import denormalize
 
 
-def notify_slack(msg, webhook=None):
-    if webhook is None:
-        webhook = os.environ.get("webhook_slack")
-    if webhook is not None:
-        try:
-            requests.post(webhook, json.dumps({"text": msg}))
-        except:
-            print("Error while notifying slack")
-            print(msg)
-    else:
-        print("NO WEBHOOK FOUND")
 
 
 def check_params(datasets, models, results_path, parameters, metrics, csv_filename):
@@ -48,6 +37,7 @@ def check_params(datasets, models, results_path, parameters, metrics, csv_filena
 
 
 def read_results_file(csv_filepath, metrics):
+
     try:
         results = pd.read_csv(csv_filepath, sep=";", index_col=0)
     except IOError:
@@ -145,12 +135,11 @@ def _run_experiment_transformer(
     print("Start _run_experiment_transformer")
     import gc
     from models import create_model
-    from transformerOptimizer import get_std_opt
-    from transformerTraining import train
-    from transformerTraining import predictMultiStep 
-    from transformerTraining import predictMultiStepBatching
+
     import torch
-    from torch.nn import L1Loss
+    from pytorch_lightning import Trainer, seed_everything
+    from torch.utils.data import DataLoader, TensorDataset
+ 
 
     results = read_results_file(csv_filepath, metrics)
 
@@ -162,51 +151,107 @@ def _run_experiment_transformer(
     past_history = x_test.shape[1]
 
 
-    device = torch.device("cuda:" + str(gpu_device) if torch.cuda.is_available() else "cpu")
-
     steps_per_epoch = min(
         int(np.ceil(x_train.shape[0] / batch_size)), max_steps_per_epoch,
     )
     
-    x_train = torch.from_numpy(x_train).float().to(device)
-    y_train = torch.from_numpy(y_train).float().to(device)
 
-    x_test = torch.from_numpy(x_test).float().to(device)
-    y_test = torch.from_numpy(y_test).float().to(device)
+    x_train = torch.from_numpy(x_train).float()
+    y_train = torch.from_numpy(y_train).float().unsqueeze(-1)
+
+    x_test = torch.from_numpy(x_test).float()
+    y_test = torch.from_numpy(y_test).float().unsqueeze(-1)
     
-    y_test_denorm = torch.from_numpy(y_test_denorm).float()
+
+
+    train_dataset = TensorDataset(x_train, y_train)
+    val_dataset = TensorDataset(x_test, y_test)
+
+    train_loader = DataLoader(train_dataset, 
+                                  batch_size = batch_size, 
+                                  shuffle = True)
+
+    val_loader = DataLoader(val_dataset, 
+                                batch_size = batch_size, 
+                                shuffle = False)
+
+    test_loader = DataLoader(val_dataset, 
+                                batch_size = 256, 
+                                shuffle = False)
+
+
+    #seed_everything(42,workers=true)
+
+
+    trainer = Trainer(
+        max_epochs=epochs,
+        gpus=[gpu_device],
+        checkpoint_callback=False
+    )
 
    
     model = create_model(
         model_name,
         x_train.shape,
+        output_size=forecast_horizon,
         **model_args
     )
-    if learning_rate == "Noam":
-        model_opt = get_std_opt(model)
-        optimizerName = "Noam"
-    else:
-        model_opt = torch.optim.Adam(model.parameters(), lr=learning_rate)
-        optimizerName = "Adam"
-    model.to(device)
-    criterion = L1Loss() # mean absolute error
+
+
 
     training_time_0 = time.time()
-    trainLoss, valLoss = train(model,x_train,y_train,x_test,y_test,epochs,steps_per_epoch,criterion,model_opt,batch_size)
+    trainer.fit(model,train_loader,val_loader)
     training_time = time.time() - training_time_0
 
-    # Get validation metrics
-    test_time_0 = time.time()
+    print("End training")
 
-    if y_test.shape[0]>256: #Batch inference to avoid out of memory error
-        test_forecast = predictMultiStepBatching(x_test,model,y_test.shape[1])
+    train_loss = float(trainer.callback_metrics["train_loss"].to("cpu"))
+    val_loss = float(trainer.callback_metrics["val_loss"].to("cpu"))
+    print("loss saved")
+
+
+    def predictMultiStepRegresive(model,x_test, nSteps):
+        '''
+        Inference for autoregresive models
+        '''
+        with torch.no_grad():
+            encoderInput = x_test
+            decoderInput = x_test[:, -1,:]
+            decoderInput = decoderInput.unsqueeze(-1)
+            for _ in range(nSteps): # We append the prediction on step 0 to the original input to get the input for step 1 and so on.
+                out = model.forward(encoderInput,decoderInput)  # We don't need mask for evaluation, we are not giving the model any future input.
+                lastPrediction = out[:,-1].detach() #detach() is quite important, otherwise we will keep the variable "out" in memory and cause an out of memory error.
+                lastPrediction = lastPrediction.unsqueeze(-1)
+                decoderInput = torch.cat((decoderInput,lastPrediction),1) 
+
+            decoderInput = decoderInput.squeeze(-1)
+        return decoderInput[:,1:]
+
+    
+    # Only use "device" for inference, as Pytorch Lighting already handles it for training
+    device = torch.device("cuda:" + str(gpu_device) if torch.cuda.is_available() else "cpu")
+
+
+    model.to(device)
+    model.eval()
+    x_test = x_test.to(device)
+    if model_name.endswith("AR"):
+        '''
+        Autoregresive inference
+        '''
+        test_time_0 = time.time()
+        test_forecast = predictMultiStepRegresive(model, x_test,y_test.shape[1])
+        test_time = time.time() - test_time_0
     else:
-        test_forecast = predictMultiStep(x_test,model,y_test.shape[1])
+        '''
+        Non-Autoregresive inference
+        '''
 
-    test_time = time.time() - test_time_0
-    test_time = test_time / x_train.shape[0]
-
-    normalized_test_forecast = test_forecast.numpy().copy()
+        test_time_0 = time.time()
+        test_forecast = model(x_test)
+        test_time = time.time() - test_time_0
+    print("End test")
+    test_forecast = test_forecast.detach().to("cpu").numpy()
 
 
     for i, nparams in enumerate(norm_params):
@@ -215,9 +260,7 @@ def _run_experiment_transformer(
         )
 
     if metrics:
-        print("y_test: ",y_test_denorm.numpy())
-        print("test_forecast: ",test_forecast)
-        test_metrics = evaluate(y_test_denorm.numpy(), test_forecast.numpy(), metrics)
+        test_metrics = evaluate(y_test_denorm, test_forecast, metrics)
         print(test_metrics)
     else:
         print("Metrics empty")
@@ -239,9 +282,6 @@ def _run_experiment_transformer(
     np.save(
         predictions_path + str(model_index) + ".npy", test_forecast,
     )
-    np.save(
-        predictions_path + "Normalize" +  str(model_index) + ".npy", normalized_test_forecast,
-    )
 
     results = results.append(
         {
@@ -255,14 +295,14 @@ def _run_experiment_transformer(
             "BATCH_SIZE": batch_size,
             "EPOCHS": epochs,
             "STEPS": steps_per_epoch,
-            "OPTIMIZER": optimizerName,
+            "OPTIMIZER": "CustomAdam",
             "LEARNING_RATE": learning_rate,
             "NORMALIZATION": normalization_method,
             "TEST_TIME": test_time,
             "TRAINING_TIME": training_time,
             **test_metrics,
-            "LOSS": str(trainLoss),
-            "VAL_LOSS": str(valLoss),
+            "LOSS": str(train_loss),
+            "VAL_LOSS": str(val_loss),
         },
         ignore_index=True,
     )
@@ -446,8 +486,8 @@ def _run_experiment(
             "TEST_TIME": test_time,
             "TRAINING_TIME": training_time,
             **test_metrics,
-            "LOSS": str(history.history["loss"]),
-            "VAL_LOSS": str(history.history["val_loss"]),
+            "LOSS": str(history.history["loss"][-1]),
+            "VAL_LOSS": str(history.history["val_loss"][-1]),
         },
         ignore_index=True,
     )
@@ -572,45 +612,66 @@ def main(args):
                         manager = Manager()
                         
                         error_dict = manager.dict()
+
+
+                        # Run in Pytorch Lightning? Else Run in Tensorflow
+                        if model_name.startswith("tr"):
                         
-                        p = Process(
-                            target=run_experiment_transformer,
-                            args=(
-                                error_dict,
-                                gpu_device,
-                                dataset,
-                                dataset_path,
-                                results_path,
-                                csv_filepath,
-                                metrics,
-                                epochs,
-                                normalization_method,
-                                past_history_factor,
-                                parameters["max_steps_per_epoch"][0],
-                                batch_size,
-                                learning_rate,
-                                model_name,
-                                model_index,
-                                model_args,
-                            ),
-                        )
-                        p.start()
-                        p.join()
+                            p = Process(
+                                target=run_experiment_transformer,
+                                args=(
+                                    error_dict,
+                                    gpu_device,
+                                    dataset,
+                                    dataset_path,
+                                    results_path,
+                                    csv_filepath,
+                                    metrics,
+                                    epochs,
+                                    normalization_method,
+                                    past_history_factor,
+                                    parameters["max_steps_per_epoch"][0],
+                                    batch_size,
+                                    "Noam", #Custom learning rate
+                                    model_name,
+                                    model_index,
+                                    model_args,
+                                ),
+                            )
+                            p.start()
+                            p.join()
+                        else:
+
+                            p = Process(
+                                target=run_experiment,
+                                args=(
+                                    error_dict,
+                                    gpu_device,
+                                    dataset,
+                                    dataset_path,
+                                    results_path,
+                                    csv_filepath,
+                                    metrics,
+                                    epochs,
+                                    normalization_method,
+                                    past_history_factor,
+                                    parameters["max_steps_per_epoch"][0],
+                                    batch_size,
+                                    learning_rate,
+                                    model_name,
+                                    model_index,
+                                    model_args,
+                                ),
+                            )
+                            p.start()
+                            p.join()
+
+
                         
                       
 
                         assert error_dict["status"] == 1, error_dict["message"]
 
-                        notify_slack(
-                            "{}/{} {}:{}/{} ({})".format(
-                                dataset_index + 1,
-                                len(datasets),
-                                dataset,
-                                experiments_index,
-                                num_total_experiments,
-                                model_name,
-                            )
-                        )
 
 
 if __name__ == "__main__":

@@ -30,7 +30,8 @@ def notify_slack(msg, webhook=None):
 
 
 # Preprocessing parameters
-PARAMETERS = json.load("parameters.json")
+with open("parameters.json") as f:
+    PARAMETERS = json.load(f)
 NORMALIZATION_METHOD = PARAMETERS["normalization_method"]
 PAST_HISTORY_FACTOR = PARAMETERS[
     "past_history_factor"
@@ -38,7 +39,8 @@ PAST_HISTORY_FACTOR = PARAMETERS[
 
 
 # This variable stores the urls of each dataset.
-DATASETS = json.load("../data/datasets.json")
+with open("../data/datasets.json") as f:
+    DATASETS = json.load(f)
 
 DATASET_NAMES = [d for d in list(DATASETS.keys())]
 
@@ -148,8 +150,11 @@ params = [
 
 for i, args in tqdm(enumerate(params)):
     t0 = time.time()
-    generate_dataset(args)
     dataset, norm_method, past_history_factor = args
+    if dataset != "SolarEnergy":
+        continue
+    generate_dataset(args)
+    
     notify_slack(
         "[{}/{}] Generated dataset {} with {} normalization and past history factor of {} ({:.2f} s)".format(
             i, len(params), dataset, norm_method, past_history_factor, time.time() - t0

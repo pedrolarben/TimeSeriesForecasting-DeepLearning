@@ -1,10 +1,8 @@
 import tensorflow as tf
 from tensorflow_addons.layers import ESN
 from tcn import TCN
-from transformerConvolutionalAtt import *
-from transformerPytorch import TransformerModel
-from transformerDecoderPytorch import TransformerDecoderModel
-from transformerDecoderConvPytorch import TransformerDecoderConvModel
+from transformerDecoder import TransformerDecoderModel
+from transformerEncoderModel import TransformerEncoderModel
 import math, copy
 
 
@@ -301,28 +299,25 @@ def create_cnn(input_shape, output_size, optimizer, loss, conv_blocks):
         pool_sizes=pool_sizes,
     )
 
-def TransformerDecoderPytorch(
-    input_shape, 
-    output_features=1,
+def TransformerDecoder(
+    input_shape,
+    output_size,
     N=3,
     d_model=256,
-    h=8,
-    dropout=0.1):
+    h=8):
 
-    model = TransformerDecoderModel(output_features,output_features,d_model,h,N)
+    model = TransformerDecoderModel(input_shape[-2],output_size,input_shape[-1],d_model,h,N)
 
     return model
 
-def TransformerDecoderConvPytorch(
-    input_shape, 
-    output_features=1,
+def TransformerEncoder(
+    input_shape,
+    output_size,
     N=3,
-    k=1,
     d_model=256,
-    h=8,
-    dropout=0.1):
+    h=8):
 
-    model = TransformerDecoderConvModel(output_features,output_features,d_model,h,N,k=k)
+    model = TransformerEncoderModel(input_shape[-2],output_size,input_shape[-1],d_model,h,N)
 
     return model
 
@@ -334,8 +329,8 @@ model_factory = {
     "esn": create_rnn(esn),
     "cnn": create_cnn,
     "tcn": tcn,
-    "trDPT": TransformerDecoderPytorch,
-    "trDCPT": TransformerDecoderConvPytorch
+    "trD_AR": TransformerDecoder,
+    "trE": TransformerEncoder
 }
 
 

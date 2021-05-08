@@ -139,6 +139,7 @@ def _run_experiment(
     import tensorflow as tf
     from models import create_model
 
+
     tf.keras.backend.clear_session()
 
     def select_gpu_device(gpu_number):
@@ -177,6 +178,7 @@ def _run_experiment(
         **model_args
     )
     print(model.summary())
+    print("Train starts")
 
     training_time_0 = time.time()
     history = model.fit(
@@ -188,21 +190,32 @@ def _run_experiment(
         validation_data=(x_test, y_test),
         shuffle=True,
     )
+#
     training_time = time.time() - training_time_0
+    
+    print("test starts")
 
+    #x_test = x_test[:256] # when measuring time performance limit number of instances on inference 
+    #y_test_denorm = y_test_denorm[:256]
     # Get validation metrics
+
     test_time_0 = time.time()
     test_forecast = model(x_test).numpy()
     test_time = time.time() - test_time_0
+ 
 
     for i, nparams in enumerate(norm_params):
         test_forecast[i] = denormalize(
             test_forecast[i], nparams, method=normalization_method,
         )
+  
+    
+    print("metrics starts")
     if metrics:
         test_metrics = evaluate(y_test_denorm, test_forecast, metrics)
     else:
         test_metrics = {}
+   
 
     # Save results
     predictions_path = "{}/{}/{}/{}/{}/{}/{}/{}/".format(
@@ -238,8 +251,8 @@ def _run_experiment(
             "TEST_TIME": test_time,
             "TRAINING_TIME": training_time,
             **test_metrics,
-            "LOSS": str(history.history["loss"]),
-            "VAL_LOSS": str(history.history["val_loss"]),
+            "LOSS": str(history.history["loss"][-1]),
+            "VAL_LOSS": str(history.history["val_loss"][-1]),
         },
         ignore_index=True,
     )

@@ -1,5 +1,5 @@
-OUTPUT=../results
-CSV_FILENAME=results.csv
+OUTPUT=./results
+CSV_FILENAME=resultsMerged.csv
 
 FILES=($(ls -d ${OUTPUT}/*/${CSV_FILENAME}))
 

@@ -2,8 +2,9 @@ import tensorflow as tf
 from tensorflow_addons.layers import ESN
 from tcn import TCN
 from transformerDecoder import TransformerDecoderModel
+from transformerDecoder2 import TransformerDecoderModel2
 from transformerEncoderModel import TransformerEncoderModel
-import math, copy
+
 
 
 def mlp(
@@ -310,6 +311,17 @@ def TransformerDecoder(
 
     return model
 
+def TransformerDecoder2(
+    input_shape,
+    output_size,
+    N=3,
+    d_model=256,
+    h=8):
+
+    model = TransformerDecoderModel2(input_shape[-2],output_size,input_shape[-1],d_model,h,N)
+
+    return model
+
 def TransformerEncoder(
     input_shape,
     output_size,
@@ -330,6 +342,7 @@ model_factory = {
     "cnn": create_cnn,
     "tcn": tcn,
     "trD_AR": TransformerDecoder,
+    "trD2_AR": TransformerDecoder2,
     "trE": TransformerEncoder
 }
 

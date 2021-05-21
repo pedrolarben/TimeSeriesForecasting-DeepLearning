@@ -185,10 +185,12 @@ def _run_experiment_transformer(
 
     trainer = Trainer(
         max_epochs=epochs,
+        max_steps=steps_per_epoch, 
         gpus=[gpu_device],
         checkpoint_callback=False
     )
 
+    print("Creating model")
    
     model = create_model(
         model_name,
@@ -227,6 +229,21 @@ def _run_experiment_transformer(
             decoderInput = decoderInput.squeeze(-1)
         return decoderInput[:,1:]
 
+    def predictMultiStepRegresive2(model,x_test, nSteps):
+        '''
+        Inference for autoregresive models
+        '''
+        with torch.no_grad():
+            z = x_test
+            for _ in range(nSteps): # We append the prediction on step 0 to the original input to get the input for step 1 and so on.
+                out = model.forward(z)  # We don't need mask for evaluation, we are not giving the model any future input.
+                lastPrediction = out[:,-1].detach() #detach() is quite important, otherwise we will keep the variable "out" in memory and cause an out of memory error.
+                lastPrediction = lastPrediction.unsqueeze(-1)
+                z = torch.cat((z,lastPrediction),1) 
+
+            output = z[:,x_test.shape[1]:].squeeze(-1)
+        return output
+
     
     # Only use "device" for inference, as Pytorch Lighting already handles it for training
     device = torch.device("cuda:" + str(gpu_device) if torch.cuda.is_available() else "cpu")
@@ -240,7 +257,7 @@ def _run_experiment_transformer(
         Autoregresive inference
         '''
         test_time_0 = time.time()
-        test_forecast = predictMultiStepRegresive(model, x_test,y_test.shape[1])
+        test_forecast = predictMultiStepRegresive2(model, x_test,y_test.shape[1])
         test_time = time.time() - test_time_0
     else:
         '''

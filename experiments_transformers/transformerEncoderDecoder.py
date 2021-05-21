@@ -1,11 +1,14 @@
 import torch
 import torch.nn as nn
 import pytorch_lightning as pl
-from utils import PositionalEncoding, Generate_square_subsequent_mask
+from utils import PositionalEncoding, generate_square_subsequent_mask
 
-class TransformerDecoderModel(pl.LightningModule):
+class transformerEncoderDecoder(pl.LightningModule):
+    '''
+    Full Transformer
+    '''
     def __init__(self,input_size,output_size, n_features, d_model=256,nhead=8, num_layers=3, dropout=0.1):
-        super(TransformerDecoderModel, self).__init__()
+        super(transformerEncoderDecoder, self).__init__()
 
         self.d_model = d_model
         self.criterion = nn.L1Loss()
@@ -34,7 +37,7 @@ class TransformerDecoderModel(pl.LightningModule):
         trg = trg.permute(1,0,2)
 
         if self.trg_mask is None or self.trg_mask.size(0) != len(trg):
-            self.trg_mask = Generate_square_subsequent_mask(len(trg)).to(trg.device)
+            self.trg_mask = generate_square_subsequent_mask(len(trg)).to(trg.device)
 
 
 

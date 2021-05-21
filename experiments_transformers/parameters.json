@@ -1,6 +1,6 @@
 {
-    "normalization_method": ["minmax"],
-    "past_history_factor": [1.25],
+    "normalization_method": ["minmax","zscore"],
+    "past_history_factor": [1.25,2.0,3.0],
     "batch_size": [32,64],
     "epochs": [5],
     "max_steps_per_epoch": [10000],
@@ -72,6 +72,11 @@
             "return_sequences": [true, false]
         },
         "trD_AR": {
+            "N":[2,3,4],
+            "d_model":[16,128,256],
+            "h":[4,8]
+        },
+        "trD2_AR": {
             "N":[2,3,4],
             "d_model":[16,128,256],
             "h":[4,8]

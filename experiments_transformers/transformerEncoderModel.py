@@ -5,6 +5,9 @@ from utils import PositionalEncoding
 
 
 class TransformerEncoderModel(pl.LightningModule):
+    '''
+    Non-Autoregresive encoder Transformer + MLP head
+    '''
     def __init__(self,input_size,output_size, n_features, d_model=256,nhead=8, num_layers=3, dropout=0.1):
         super(TransformerEncoderModel, self).__init__()
 

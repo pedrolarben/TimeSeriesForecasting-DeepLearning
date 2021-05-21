@@ -1,14 +1,15 @@
 import torch
 import torch.nn as nn
 import pytorch_lightning as pl
+
 from utils import PositionalEncoding, generate_square_subsequent_mask
 
-class TransformerDecoderModel(pl.LightningModule):
+class TransformerDecoderModel2(pl.LightningModule):
     '''
-    Autoregresive Decoder-Only Transformer. Variant number 1.
+    Autoregresive Decoder-Only Transformer. Variant number 2.
     '''
     def __init__(self,input_size,output_size, n_features, d_model=256,nhead=8, num_layers=3, dropout=0.1):
-        super(TransformerDecoderModel, self).__init__()
+        super(TransformerDecoderModel2, self).__init__()
 
         self.d_model = d_model
         self.criterion = nn.L1Loss()
@@ -22,56 +23,45 @@ class TransformerDecoderModel(pl.LightningModule):
         self.encoder = nn.Linear(n_features, d_model)
         self.pos_encoder = PositionalEncoding(d_model, dropout)
 
-        self.decoder = nn.Linear(n_features, d_model)
-        self.pos_decoder = PositionalEncoding(d_model, dropout) 
-
-        decoder_layer = nn.TransformerDecoderLayer(d_model=d_model, nhead=nhead,dim_feedforward=d_model*4, dropout=dropout, activation='relu')
-        self.transformer_decoder  = nn.TransformerDecoder(decoder_layer, num_layers=num_layers)
+        decoder_layer = nn.TransformerEncoderLayer(d_model=d_model, nhead=nhead,dim_feedforward=d_model*4, dropout=dropout, activation='relu')
+        self.transformer_decoder  = nn.TransformerEncoder(decoder_layer, num_layers=num_layers)
         self.fc_out = nn.Linear(d_model, n_features)
 
         self.src_mask = None
-        self.trg_mask = None
-        self.memory_mask = None
         
-    def forward(self, src,trg):
+    def forward(self, src):
 
         src = src.permute(1,0,2)
-        trg = trg.permute(1,0,2)
 
-        if self.trg_mask is None or self.trg_mask.size(0) != len(trg):
-            self.trg_mask = generate_square_subsequent_mask(len(trg)).to(trg.device)
-
-
+        if self.src_mask is None or self.src_mask.size(0) != len(src):
+            self.src_mask = generate_square_subsequent_mask(len(src)).to(src.device)
 
         src = self.encoder(src)
         src = self.pos_encoder(src)
 
-        trg = self.decoder(trg)
-        trg = self.pos_decoder(trg)
-
-
-        output = self.transformer_decoder(trg,src, tgt_mask=self.trg_mask, memory_mask=self.src_mask)
+        output = self.transformer_decoder(src,self.src_mask)
         output = self.fc_out(output)
 
         return output.permute(1,0,2)
 
     def training_step(self, batch, batch_idx):
-        x, y = batch
-        y = torch.cat((x[:,-1,:].unsqueeze(1),y ),1)
+        x,y = batch
+        z = torch.cat((x,y[:,:-1]),1)
         
-        y_hat = self(x,y[:, :-1])
+        y_hat = self(z)
+        y_hat = y_hat[:,x.shape[1]:]
         loss = self.criterion(y_hat, y[:, 1:])
         self.log("train_loss",loss,on_epoch=True,logger=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
-        decoderInput = x[:, -1].unsqueeze(-1)
+        z = x
         for i in range(0,self.output_size):
-            out = self(x,decoderInput)
-            decoderInput = torch.cat((decoderInput,out[:,-1].unsqueeze(-1).detach()),1) 
+            out = self(z)
+            z = torch.cat((z,out[:,-1].unsqueeze(-1).detach()),1) 
             
-        y_hat = decoderInput[:, 1:]
+        y_hat = z[:,x.shape[1]:]
         loss = self.criterion(y_hat, y)
         self.log('val_loss', loss,on_epoch=True,prog_bar=True,logger=True)
         return loss

@@ -58,9 +58,9 @@ def generate_dataset(args):
             pathlib.Path("../data/{}".format(dataset)).mkdir(
                 parents=True, exist_ok=True
             )
-        with open("./data/{}/train.csv".format(dataset), "w") as datafile:
+        with open("../data/{}/train.csv".format(dataset), "w") as datafile:
             datafile.write(requests.get(train_url).content.decode())
-        with open("./data/{}/test.csv".format(dataset), "w") as datafile:
+        with open("../data/{}/test.csv".format(dataset), "w") as datafile:
             datafile.write(requests.get(test_url).content.decode())
 
     if not os.path.exists(

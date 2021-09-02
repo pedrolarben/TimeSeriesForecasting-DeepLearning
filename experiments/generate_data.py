@@ -3,7 +3,7 @@ import os
 import requests
 import json
 import time
-import random
+import pathlib
 import itertools
 import numpy as np
 from tqdm import tqdm
@@ -15,6 +15,7 @@ from preprocessing import (
 )
 
 NUM_CORES = 7
+
 
 def notify_slack(msg, webhook=None):
     if webhook is None:
@@ -54,18 +55,20 @@ def generate_dataset(args):
         "../data/{}/test.csv".format(dataset)
     ):
         if not os.path.exists("../data/{}".format(dataset)):
-            os.system("mkdir -p ../data/{}".format(dataset))
-        os.system("wget -O ../data/{}/train.csv {}".format(dataset, train_url))
-        os.system("wget -O ../data/{}/test.csv  {}".format(dataset, test_url))
+            pathlib.Path("../data/{}".format(dataset)).mkdir(
+                parents=True, exist_ok=True
+            )
+        with open("./data/{}/train.csv".format(dataset), "w") as datafile:
+            datafile.write(requests.get(train_url).content.decode())
+        with open("./data/{}/test.csv".format(dataset), "w") as datafile:
+            datafile.write(requests.get(test_url).content.decode())
 
     if not os.path.exists(
         "../data/{}/{}/{}/".format(dataset, norm_method, past_history_factor)
     ):
-        os.system(
-            "mkdir -p ../data/{}/{}/{}/".format(
-                dataset, norm_method, past_history_factor
-            )
-        )
+        pathlib.Path(
+            "../data/{}/{}/{}/".format(dataset, norm_method, past_history_factor)
+        ).mkdir(parents=True, exist_ok=True)
 
     # Read data
     train = read_ts_dataset("../data/{}/train.csv".format(dataset))
@@ -154,7 +157,7 @@ for i, args in tqdm(enumerate(params)):
     if dataset != "SolarEnergy":
         continue
     generate_dataset(args)
-    
+
     notify_slack(
         "[{}/{}] Generated dataset {} with {} normalization and past history factor of {} ({:.2f} s)".format(
             i, len(params), dataset, norm_method, past_history_factor, time.time() - t0
